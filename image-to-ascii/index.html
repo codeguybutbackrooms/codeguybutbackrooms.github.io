@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image to ASCII Art Converter</title>
+  <style>
+    :root {
+      --bg-color: #111;
+      --text-color: #eee;
+      --accent-color: #4fc3f7;
+      --font-mono: 'Courier New', Courier, monospace;
+    }
+
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: Arial, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--accent-color);
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+
+    label, select, input, textarea, button {
+      display: block;
+      margin: 0.5rem 0;
+      width: 100%;
+      padding: 0.5rem;
+      background: #222;
+      color: var(--text-color);
+      border: 1px solid #444;
+      border-radius: 5px;
+    }
+
+    select, input[type="checkbox"], input[type="range"] {
+      width: auto;
+      display: inline-block;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--accent-color);
+      color: #000;
+    }
+
+    #asciiArtContainer {
+      margin-top: 1rem;
+      overflow: auto;
+      background: #000;
+      padding: 1rem;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      white-space: pre;
+      line-height: 1;
+    }
+
+    .embed-options {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    textarea#embedCode {
+      font-family: var(--font-mono);
+      background: #1a1a1a;
+      color: #90ee90;
+      height: 300px;
+      overflow: auto;
+      white-space: pre;
+    }
+
+    .embed-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .tab-btn {
+      padding: 0.3rem 0.6rem;
+      background: #333;
+      border: none;
+      color: var(--text-color);
+      border-radius: 3px;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-color);
+      color: #000;
+    }
+
+    .colorBtn {
+      margin: 1rem 0;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Image to ASCII Art Converter</h1>
+
+    <input type="file" id="imageInput" accept="image/*" />
+    <label>Characters Preset</label>
+    <select id="presetSelect">
+      <option value="">Custom</option>
+      <option value=" !@#$%^&*()-=_+[]{};':<> ">Detailed</option>
+      <option value="!@#$%^&*()-=_+[];',./{}:|<>?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890 ">Smooth</option>
+      <option value="▀▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▐░▒▓▔▕▖▗▘▙▚▛▜▝▞▟@#$%^ ">Blocky</option>
+      <option value="01">Binary</option>
+    </select>
+
+    <label for="charSet">Characters:</label>
+    <input type="text" id="charSet" value="?"><br>
+
+    <button class="colorBtn" id="toggleColor">Colors On/Off</button>
+    <label>
+      Include Transparent Pixels
+      <input type="checkbox" id="includeAlpha" checked />
+    </label>
+    <label>
+      Super Detailed Mode
+      <input type="checkbox" id="superDetailMode" />
+    </label>
+    <label>
+      Invert Colors
+      <input type="checkbox" id="invertColor" />
+    </label>
+
+
+
+
+    <label for="fontSize">Font Size:</label>
+    <input type="range" id="fontSize" min="8" max="24" value="12" />
+    <span id="fontSizeLabel">12px</span>
+
+    <button onclick="convertImage()">Convert</button>
+
+    <div id="asciiArtContainer" style="font-size: 12px;"></div>
+
+    <div class="embed-tabs">
+      <button class="tab-btn active" data-format="rgb">RGB</button>
+      <button class="tab-btn" data-format="hex">HEX</button>
+      <button class="tab-btn" data-format="hsl">HSL</button>
+      <button class="tab-btn" data-format="hsla">HSLA</button>
+    </div>
+
+    <label for="embedCode">Embeddable HTML</label>
+    <textarea id="embedCode" readonly></textarea>
+    <button onclick="copyEmbed()">Copy Embed</button>
+  </div>
+
+  <script>
+    const imageInput = document.getElementById("imageInput");
+    const asciiContainer = document.getElementById("asciiArtContainer");
+    const embedCode = document.getElementById("embedCode");
+    const charSetInput = document.getElementById("charSet");
+    const presetSelect = document.getElementById("presetSelect");
+    const fontSizeInput = document.getElementById("fontSize");
+    const fontSizeLabel = document.getElementById("fontSizeLabel");
+    const includeAlphaCheckbox = document.getElementById("includeAlpha");
+
+    let useColor = false;
+    let currentFormat = "rgb";
+
+    document.getElementById("toggleColor").onclick = () => {
+      useColor = !useColor;
+      document.getElementById("toggleColor").textContent = useColor ? "Colors Off" : "Colors On";
+    };
+    
+
+    fontSizeInput.addEventListener("input", () => {
+      asciiContainer.style.fontSize = `${fontSizeInput.value}px`;
+      fontSizeLabel.textContent = `${fontSizeInput.value}px`;
+      embedCode.style.fontSize = `${fontSizeInput.value}px`;
+    });
+
+    presetSelect.addEventListener("change", () => {
+      if (presetSelect.value) {
+        charSetInput.value = presetSelect.value;
+      }
+    });
+
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFormat = btn.dataset.format;
+        if (useColor) {
+          recolorAscii();
+        }
+        generateEmbed();
+      });
+    });
+
+
+
+    function convertImage() {
+      const file = imageInput.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = function (e) {
+        img.src = e.target.result;
+      };
+
+      img.onload = function () {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const superMode = document.getElementById("superDetailMode").checked;
+        const baseWidth = superMode ? 300 : 100;
+        const aspectRatio = img.height / img.width;
+        const width = baseWidth;
+        const height = Math.floor(baseWidth * aspectRatio * 0.55);
+
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const data = ctx.getImageData(0, 0, width, height).data;
+        const chars = charSetInput.value || " .:-=+*#%@";
+        const includeTransparent = document.getElementById("includeAlpha").checked;
+        const invert = document.getElementById("invertColor")?.checked || false;
+
+
+        let ascii = "";
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            let r = data[i];
+            let g = data[i + 1];
+            let b = data[i + 2];
+            const a = data[i + 3] / 255;
+
+            if (invert) {
+              r = 255 - r;
+              g = 255 - g;
+              b = 255 - b;
+            }
+            if (!includeTransparent && a === 0) {
+              ascii += "&nbsp;";
+              continue;
+            }
+
+            let avg = (r + g + b) / 3;
+            if (invert) avg = 255 - avg;
+
+            const char = chars[Math.floor((avg / 255) * (chars.length - 1))];
+
+            if (useColor) {
+              let color;
+              if (a === 0) {
+                switch (currentFormat) {
+                  case "hex": color = "#ffffff"; break;
+                  case "hsl": color = "hsl(0, 0%, 100%)"; break;
+                  case "hsla": color = "hsla(0, 0%, 100%, 1)"; break;
+                  default: color = "rgb(255, 255, 255)";
+                }
+              } else {
+                switch (currentFormat){
+                  case "hex": color = rgbToHex(r, g, b); break;
+                  case "hsl": color = rgbToHsl(r, g, b); break;
+                  case "hsla": color = rgbToHsla(r, g, b, a); break;
+                  default: color = `rgb(${r}, ${g}, ${b})`;
+                }
+              }
+              ascii += `<span style="color: ${color}">${char}</span>`;
+            } else {
+              ascii += char;
+            }
+
+
+          }
+          ascii += "<br/>";
+        }
+
+        asciiContainer.innerHTML = ascii;
+        generateEmbed();
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+
+    function generateEmbed() {
+      const fontSize = fontSizeInput.value || 12;
+      const content = asciiContainer.innerHTML;
+      const multilineContent = content.replace(/<br\s*\/?>/gi, '\n');
+      embedCode.value = `<div style="font-family: monospace; background: black; color: white; font-size: ${fontSize}px; line-height: 1;">\n${multilineContent}\n</div>`;
+    }
+
+
+    function copyEmbed() {
+      embedCode.select();
+      document.execCommand("copy");
+    }
+
+    function rgbToHex(r, g, b) {
+      return "#" + [r, g, b].map(x => x.toString(16).padStart(2, "0")).join("");
+    }
+
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      let max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+      if (max == min) h = s = 0;
+      else {
+        let d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return `hsl(${Math.round(h * 360)},${Math.round(s * 100)}%,${Math.round(l * 100)}%)`;
+    }
+
+    function rgbToHsla(r, g, b, a = 1) {
+      r /= 255; g /= 255; b /= 255;
+      let max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+
+      if (max === min) {
+        h = s = 0;
+      } else {
+        let d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+
+      return `hsla(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%, ${a})`;
+    }
+
+  </script>
+</body>
+</html>

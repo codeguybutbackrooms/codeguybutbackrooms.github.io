@@ -1,24 +1,52 @@
-// Minimal Base58 (Bitcoin alphabet)
-const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+(function () {
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const base = BigInt(alphabet.length);
 
-const base58 = {
-  encode: (txt) => {
-    let num = BigInt('0x' + Array.from(txt).map(c => c.charCodeAt(0).toString(16)).join(''));
-    let encoded = '';
+  function encode(input) {
+    let bytes = new TextEncoder().encode(input);
+    let num = BigInt(0);
+    for (let byte of bytes) {
+      num = (num << BigInt(8)) + BigInt(byte);
+    }
+
+    let encoded = "";
     while (num > 0) {
-      const mod = num % 58n;
-      encoded = ALPHABET[Number(mod)] + encoded;
-      num = num / 58n;
+      const mod = num % base;
+      encoded = alphabet[Number(mod)] + encoded;
+      num = num / base;
     }
+
+    // Handle leading zeros (0x00 bytes)
+    for (let byte of bytes) {
+      if (byte === 0) encoded = alphabet[0] + encoded;
+      else break;
+    }
+
     return encoded;
-  },
-  decode: (txt) => {
-    let num = 0n;
-    for (let c of txt) {
-      num = num * 58n + BigInt(ALPHABET.indexOf(c));
-    }
-    let hex = num.toString(16);
-    if (hex.length % 2) hex = '0' + hex;
-    return decodeURIComponent('%' + hex.match(/.{1,2}/g).join('%'));
   }
-};
+
+  function decode(input) {
+    let num = BigInt(0);
+    for (let char of input) {
+      const index = alphabet.indexOf(char);
+      if (index === -1) throw new Error(`Invalid character '${char}' in Base58 string.`);
+      num = num * base + BigInt(index);
+    }
+
+    let bytes = [];
+    while (num > 0) {
+      bytes.unshift(Number(num % BigInt(256)));
+      num = num / BigInt(256);
+    }
+
+    // Handle leading Base58 zeros
+    for (let char of input) {
+      if (char === alphabet[0]) bytes.unshift(0);
+      else break;
+    }
+
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  }
+
+  window.base58 = { encode, decode };
+})();

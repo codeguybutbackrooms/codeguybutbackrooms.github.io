@@ -2,34 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Universal Encoder/Decoder</title>
+
+  <!-- Google Font (optional, matches your site style) -->
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
-    <h1>Universal Encoder/Decoder</h1>
-    <textarea id="inputText" placeholder="Enter text here..."></textarea>
-    
+    <h1>Universal Encoder / Decoder</h1>
+
+    <textarea id="inputText" placeholder="Enter your input here..."></textarea>
+
     <select id="method">
       <option value="base64">Base64</option>
       <option value="base32">Base32</option>
       <option value="base58">Base58</option>
       <option value="base91">Base91</option>
       <option value="rot13">ROT13</option>
-      <option value="caesar">Caesar (shift 3)</option>
+      <option value="caesar">Caesar Cipher (shift 3)</option>
       <option value="htmlEntities">HTML Entities</option>
-      <option value="url">URL Encode</option>
-      <option value="ascii">ASCII ↔ Binary/Hex/Oct</option>
+      <option value="url">URL Encoding</option>
+      <option value="ascii">ASCII ↔ Binary/Hex/Octal</option>
     </select>
-    
+
     <div class="button-group">
       <button onclick="runEncode()">Encode</button>
       <button onclick="runDecode()">Decode</button>
     </div>
-    
-    <textarea id="outputText" placeholder="Result..." readonly></textarea>
+
+    <textarea id="outputText" placeholder="Output will appear here..." readonly></textarea>
   </div>
 
+  <!-- Scripts: All modules must be loaded BEFORE main.js -->
   <script src="scripts/base64.js"></script>
   <script src="scripts/base32.js"></script>
   <script src="scripts/base58.js"></script>

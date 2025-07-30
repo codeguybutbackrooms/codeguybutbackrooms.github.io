@@ -71,16 +71,24 @@
       color: inherit;
     }
 
-    .back {
+    .back-button {
       margin-top: 3rem;
-      font-size: 0.95rem;
+      padding: 0.6rem 1.2rem;
+      background-color: transparent;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
       color: var(--accent);
-      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: 0.25s ease;
     }
 
-    .back:hover {
-      text-decoration: underline;
+    .back-button:hover {
+      background-color: var(--accent);
+      color: var(--bg);
+      box-shadow: 0 0 10px var(--accent);
     }
+
   </style>
 </head>
 <body>
@@ -97,6 +105,6 @@
     </a>
   </div>
 
-  <div class="back" onclick="history.back()">← Back to Home</div>
+  <a href="index.html" class="back-button">← Back to Home</a>
 </body>
 </html>

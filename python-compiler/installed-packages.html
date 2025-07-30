@@ -1,122 +1,171 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Installed Python Packages</title>
-  <style>
-    body {
-      background: #111;
-      color: #eee;
-      font-family: sans-serif;
-      padding: 2rem;
-    }
-    h1 {
-      color: #fff;
-    }
-    ul {
-      list-style-type: square;
-      padding-left: 1.5rem;
-    }
-    li {
-      padding: 0.3rem 0;
-    }
-    .none {
-      color: #f44336;
-      font-style: italic;
-    }
-    a {
-      color: #03a9f4;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    .big-text {
-      font-size: 3em;
-      text-align: center;
-    }
-    .keycap {
-      display: inline-block;
-      padding: 6px 10px;
-      font-family: monospace;
-      font-size: 14px;
-      color: #333;
-      background-color: #f0f0f0;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-shadow: inset 0 -1px 0 #ccc;
-      white-space: pre-wrap;
-      margin-top: 10px;
-    }
-    button {
-      padding: 6px 12px;
-      background-color: #2196f3;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    button:hover {
-      background-color: #1976d2;
-    }
-  </style>
-</head>
-<body>
-  <h1>📦 Installed Python Packages</h1>
-  <ul id="package-list"></ul>
+const body = document.body;
+let pyodide, pythonEditor;
 
-  <button onclick="clearPackages()" aria-label="Clear all installed packages">🧹 Clear All</button>
-  <p><a href="index.html">← Back to Editor</a></p>
-  <br>
+const EDITOR_KEY = "pythonCode";
+const PACKAGE_KEY = "installedPackages";
 
-<script>
-  function clearPackages() {
-    const confirmed = confirm("Clear all installed package records?");
-    if (confirmed) {
-      localStorage.removeItem("installedPackages");
-      console.log("Cleared localStorage key: installedPackages");
-      location.reload(); // reload to reflect changes
-    } else {
-      console.log("User canceled clearing packages");
-    }
-  }
-
-  // Init display
-  const listEl = document.getElementById("package-list");
-  const stored = localStorage.getItem("installedPackages");
-  const packages = stored ? JSON.parse(stored) : [];
-
-  if (packages.length === 0) {
-    listEl.innerHTML = `<li class="none">No packages installed.</li>`;
-  } else {
-    packages.forEach(pkg => {
-      const li = document.createElement("li");
-      li.textContent = pkg;
-      listEl.appendChild(li);
+// Linting support
+CodeMirror.registerHelper("lint", "python", function (text) {
+  const found = [];
+  try {
+    pyodide.runPython(`compile(${JSON.stringify(text)}, "<input>", "exec")`);
+  } catch (e) {
+    const msg = e.toString();
+    const lineMatch = msg.match(/line (\d+)/i);
+    const line = lineMatch ? parseInt(lineMatch[1], 10) - 1 : 0;
+    found.push({
+      from: CodeMirror.Pos(line, 0),
+      to: CodeMirror.Pos(line, 100),
+      message: msg,
+      severity: "error"
     });
   }
-</script>
+  return found;
+});
 
-  <p class="big-text">What's this?</p>
-  <p>This will show the list of packages you installed via <a href="https://pyodide.org/en/stable/">Pyodide</a>.</p>
-  <p>To install packages, you can use the following syntax in your code editor:</p>
+async function main() {
+  pyodide = await loadPyodide();
 
-  <pre class="keycap">micropip.install("your-package")</pre>
+  const savedPackages = JSON.parse(localStorage.getItem(PACKAGE_KEY)) || [];
+  if (savedPackages.length > 0) {
+    await pyodide.loadPackage("micropip");
+    for (const mod of savedPackages) {
+      try {
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install("${mod}")
+        `);
+        console.log(`Auto-reinstalled: ${mod}`);
+      } catch (err) {
+        console.warn(`Failed to auto-reinstall ${mod}:`, err);
+      }
+    }
+  }
 
-  <p style="margin-top: 15px;">View available packages you can install: 
-    <a href="https://pyodide.org/en/stable/usage/packages-in-pyodide.html" target="_blank">Pyodide Packages List</a>
-    <br><br>
-    <p>Also, every package that can be installed using <code>pip install</code> in pure Python is available to install here</p>
-  </p>
+  pythonEditor = CodeMirror.fromTextArea(document.getElementById("pythonEditor"), {
+    mode: "python",
+    theme: "material",
+    lineNumbers: true,
+    autoCloseBrackets: true,
+    indentUnit: 4,
+    tabSize: 4,
+    smartIndent: true,
+    lint: true,
+    gutters: ["CodeMirror-lint-markers"]
+  });
 
-  <p>Example usage:</p>
-  <pre class="keycap">
-micropip.install("emoji")
-import emoji
-print(emoji.emojize("Python is :thumbs_up:"))
+  // Load saved code
+  const savedCode = localStorage.getItem(EDITOR_KEY);
+  if (savedCode) {
+    pythonEditor.setValue(savedCode);
+  }
 
-name = input("Name? ")
-print("Hi", name)</pre>
-</body>
-</html>
+  // Auto-save on change
+  pythonEditor.on("change", () => {
+    localStorage.setItem(EDITOR_KEY, pythonEditor.getValue());
+  });
+
+  // Reveal the editor after everything is ready
+  document.getElementById("loader").style.display = "none";
+  document.getElementById("pythonEditor").style.display = "block";
+}
+
+main();
+
+// Run button
+document.getElementById("run").addEventListener("click", async () => {
+  const outputDiv = document.getElementById("output");
+  outputDiv.innerHTML = "";
+
+  const rawCode = pythonEditor.getValue();
+  const lines = rawCode.split("\n");
+  const installed = JSON.parse(localStorage.getItem(PACKAGE_KEY)) || [];
+  const codeLines = [];
+
+  const micropipInstallRegex = /micropip\.install\s*\(\s*["']([^"']+)["']\s*\)/;
+  const toInstall = [];
+
+  for (let line of lines) {
+    const match = line.match(micropipInstallRegex);
+    if (match) {
+      const mod = match[1];
+      if (!installed.includes(mod)) {
+        toInstall.push(mod);
+      } else {
+        outputDiv.innerHTML += `📦 <b>${mod}</b> is already installed.<br>`;
+      }
+    } else {
+      codeLines.push(line);
+    }
+  }
+
+  if (toInstall.length > 0) {
+    await pyodide.loadPackage("micropip");
+
+    for (const mod of toInstall) {
+      outputDiv.innerHTML += `📦 Installing module <b>${mod}</b>...<br>`;
+      try {
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install("${mod}")
+        `);
+        installed.push(mod);
+        localStorage.setItem(PACKAGE_KEY, JSON.stringify(installed));
+        outputDiv.innerHTML += `✅ Installed <b>${mod}</b>. See the <a href="installed-packages.html" target="_blank">Installed Packages</a><br><br>`;
+      } catch (err) {
+        outputDiv.innerHTML += `❌ Failed to install <b>${mod}</b>: ${err}<br><br>`;
+        return;
+      }
+    }
+  }
+
+  if (codeLines.length === 0) {
+    codeLines.push("pass");
+  }
+  const finalCode = codeLines.join("\n");
+
+  const inputRegex = /input\s*\((?:\"([^\"]*)\"|'([^']*)')?\)/g;
+  let inputs = [];
+  let match;
+  while ((match = inputRegex.exec(finalCode))) {
+    const promptText = match[1] || match[2] || "Input:";
+    const response = prompt(promptText);
+    inputs.push(response === null ? "None" : JSON.stringify(response));
+  }
+
+  const wrappedCode = `
+import sys
+import io
+sys.stdout = io.StringIO()
+_input_values = [${inputs.join(",")}]
+def input(prompt=None):
+    return _input_values.pop(0)
+try:
+${finalCode.split("\n").map(line => "    " + line).join("\n")}
+except Exception as e:
+    import traceback; traceback.print_exc()
+result = sys.stdout.getvalue()
+`;
+
+  try {
+    await pyodide.runPythonAsync(wrappedCode);
+    const result = pyodide.runPython("result");
+    outputDiv.innerHTML += `<pre>${result}</pre>`;
+  } catch (err) {
+    outputDiv.innerHTML += `<pre>Error:\n${err}</pre>`;
+  }
+});
+
+// Show installed packages
+document.getElementById("packages").addEventListener("click", () => {
+  window.location.href = "installed-packages.html";
+});
+
+// Clear editor button
+document.getElementById("clear-editor").addEventListener("click", () => {
+  const confirmed = confirm("Clear all code from the editor?");
+  if (confirmed) {
+    pythonEditor.setValue("");
+    localStorage.removeItem(EDITOR_KEY);
+  }
+});

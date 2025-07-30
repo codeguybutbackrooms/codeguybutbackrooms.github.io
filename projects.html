@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Projects</title>
+  <style>
+    :root {
+      --bg: #111;
+      --text: #f5f5f5;
+      --accent: #00ccff;
+      --card-bg: #1d1d1d;
+      --font: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem 1rem;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 2.3rem;
+      margin-bottom: 1rem;
+      color: var(--accent);
+    }
+
+    .projects {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      max-width: 1000px;
+      width: 100%;
+      margin-top: 2rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      padding: 1rem 1.2rem;
+      border-radius: 10px;
+      transition: 0.2s ease;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      background-color: #222;
+    }
+
+    .card h3 {
+      margin: 0 0 0.5rem;
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+
+    a.card {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .back {
+      margin-top: 3rem;
+      font-size: 0.95rem;
+      color: var(--accent);
+      cursor: pointer;
+    }
+
+    .back:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>My Mini Projects</h1>
+
+  <div class="projects">
+    <a href="python-compiler/index.html" class="card">
+      <h3>Python Compiler</h3>
+      <p>Write your Python code and run!</p>
+    </a>
+    <a href="html-compiler/index.html" class="card">
+      <h3>HTML Compiler</h3>
+      <p>Write your HTML/CSS/JS code!</p>
+    </a>
+  </div>
+
+  <div class="back" onclick="history.back()">← Back to Home</div>
+</body>
+</html>

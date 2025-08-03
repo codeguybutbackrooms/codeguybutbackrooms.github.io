@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Rotating ASCII Cube</title>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: monospace;
+      white-space: pre;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    #ascii {
+      line-height: 1;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <pre id="ascii"></pre>
+  <script>
+    const pre = document.getElementById("ascii");
+    let A = 0, B = 0;
+
+    const render = () => {
+      const b = ".,-~:;=!*#$@";
+      const z = Array(1760).fill(0);
+      const s = Array(1760).fill(" ");
+      for (let j = 0; j < 6.28; j += 0.07) {
+        for (let i = 0; i < 6.28; i += 0.02) {
+          const c = Math.sin(i);
+          const d = Math.cos(j);
+          const e = Math.sin(A);
+          const f = Math.sin(j);
+          const g = Math.cos(A);
+          const h = d + 2;
+          const D = 1 / (c * h * e + f * g + 5);
+          const l = Math.cos(i);
+          const m = Math.cos(B);
+          const n = Math.sin(B);
+          const t = c * h * g - f * e;
+          const x = Math.floor(40 + 30 * D * (l * h * m - t * n));
+          const y = Math.floor(12 + 15 * D * (l * h * n + t * m));
+          const o = x + 80 * y;
+          const N = Math.floor(8 * ((f * e - c * d * g) * m - c * d * e - f * g - l * d * n));
+          if (1760 > o && o > 0 && D > z[o]) {
+            z[o] = D;
+            s[o] = b[N > 0 ? N : 0];
+          }
+        }
+      }
+      pre.textContent = s.join("").replace(/(.{80})/g, "$1\n");
+      A += 0.04;
+      B += 0.08;
+    };
+
+    setInterval(render, 50);
+  </script>
+</body>
+</html>

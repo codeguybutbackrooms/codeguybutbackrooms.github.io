@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASCII Spinning Cube</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    pre {
+      margin: 0;
+      padding: 0;
+      line-height: 1em;
+      font-size: 8px;
+    }
+  </style>
+</head>
+<body>
+  <pre id="ascii"></pre>
+  <script>
+    const pre = document.getElementById('ascii');
+    const width = 80, height = 40;
+    const buffer = new Array(width * height);
+    const zBuffer = new Array(width * height);
+
+    let A = 0, B = 0;
+    const distanceFromCam = 100;
+    const K1 = 40;
+    const incrementSpeed = 0.6;
+
+    function clearAll() {
+      buffer.fill(' ');
+      zBuffer.fill(0);
+    }
+    function calculateX(i,j,k) {
+      return j*Math.sin(A)*Math.sin(B)*Math.cos(A)
+           - k*Math.cos(A)*Math.sin(B)*Math.cos(A)
+           + j*Math.cos(A)*Math.sin(A)
+           + k*Math.sin(A)*Math.sin(A)
+           + i*Math.cos(B)*Math.cos(A);
+    }
+    function calculateY(i,j,k) {
+      return j*Math.cos(A)*Math.cos(A)
+           + k*Math.sin(A)*Math.cos(A)
+           - j*Math.sin(A)*Math.sin(B)*Math.sin(A)
+           + k*Math.cos(A)*Math.sin(B)*Math.sin(A)
+           - i*Math.cos(B)*Math.sin(A);
+    }
+    function calculateZ(i,j,k) {
+      return k*Math.cos(A)*Math.cos(B)
+           - j*Math.sin(A)*Math.cos(B)
+           + i*Math.sin(B);
+    }
+    function drawCube(cubeWidth) {
+      const w2 = width/2, h2 = height/2;
+      for (let x0 = -cubeWidth; x0 < cubeWidth; x0 += incrementSpeed) {
+        for (let y0 = -cubeWidth; y0 < cubeWidth; y0 += incrementSpeed) {
+          // each face of cube: six calls
+          plotSurface(x0, y0, -cubeWidth, '@');
+          plotSurface(cubeWidth, y0, x0, '$');
+          plotSurface(-cubeWidth, y0, -x0, '~');
+          plotSurface(-x0, y0, cubeWidth, '#');
+          plotSurface(x0, -cubeWidth, -y0, ';');
+          plotSurface(x0, cubeWidth, y0, '+');
+        }
+      }
+    }
+    function plotSurface(x0,y0,z0,ch) {
+      const x = calculateX(x0,y0,z0);
+      const y = calculateY(x0,y0,z0);
+      const z = calculateZ(x0,y0,z0) + distanceFromCam;
+      const ooz = 1/z;
+      const xp = Math.floor(width/2 + K1*ooz*x*2);
+      const yp = Math.floor(height/2 + K1*ooz*y);
+      const idx = xp + yp*width;
+      if(idx>=0 && idx<buffer.length && ooz>zBuffer[idx]) {
+        zBuffer[idx] = ooz;
+        buffer[idx] = ch;
+      }
+    }
+    function render() {
+      clearAll();
+      drawCube(20);
+      let out = '';
+      for (let i=0; i<buffer.length; i++) {
+        out += buffer[i];
+        if ((i+1)%width===0) out += '\n';
+      }
+      pre.textContent = out;
+      A += 0.05;
+      B += 0.03;
+    }
+    setInterval(render, 50);
+  </script>
+</body>
+</html>

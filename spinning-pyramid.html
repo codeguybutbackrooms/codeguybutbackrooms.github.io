@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spinning ASCII Pyramid</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
+    }
+    pre {
+      font-size: 15px;
+      line-height: 10px;
+      white-space: pre;
+      text-align: center;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+  <pre id="pyramid"></pre>
+
+  <script>
+    const pyramidEl = document.getElementById('pyramid');
+
+    // Coordinates for a square pyramid with base and apex
+    const points = [
+      [1, 1, -1],   // base front-right
+      [-1, 1, -1],  // base front-left
+      [-1, 1, 1],   // base back-left
+      [1, 1, 1],    // base back-right
+      [0, -1, 0]    // apex
+    ];
+
+    const edges = [
+      [0,1], [1,2], [2,3], [3,0], // base edges
+      [0,4], [1,4], [2,4], [3,4]  // sides to apex
+    ];
+
+    const scale = 20; // scale factor
+    let angle = 0;
+
+    function rotateY(point, theta) {
+      const [x, y, z] = point;
+      return [
+        Math.cos(theta) * x - Math.sin(theta) * z,
+        y,
+        Math.sin(theta) * x + Math.cos(theta) * z
+      ];
+    }
+
+    function project(point) {
+      const [x, y, z] = point;
+      const dist = 5;
+      const factor = dist / (dist + z);
+      return [
+        Math.round(scale * x * factor),
+        Math.round(scale * y * factor)
+      ];
+    }
+
+    function render() {
+      const width = 80, height = 40;
+      const buffer = Array.from({length: height}, () => Array(width).fill(' '));
+
+      const rotated = points.map(p => rotateY(p, angle));
+      const projected = rotated.map(project);
+
+      for (const [a, b] of edges) {
+        const [x0, y0] = projected[a];
+        const [x1, y1] = projected[b];
+        drawLine(buffer, x0 + width / 2, y0 + height / 2, x1 + width / 2, y1 + height / 2);
+      }
+
+      pyramidEl.textContent = buffer.map(row => row.join('')).join('\n');
+      angle += 0.03;
+      requestAnimationFrame(render);
+    }
+
+    function drawLine(buffer, x0, y0, x1, y1) {
+      x0 = Math.round(x0); y0 = Math.round(y0);
+      x1 = Math.round(x1); y1 = Math.round(y1);
+      const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+      const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+      let err = dx + dy;
+
+      while (true) {
+        if (y0 >= 0 && y0 < buffer.length && x0 >= 0 && x0 < buffer[0].length) {
+          buffer[y0][x0] = '#';
+        }
+        if (x0 === x1 && y0 === y1) break;
+        const e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF → PyPDF Code (Recreate + ReportLab)</title>
+  <style>
+    :root{
+      --bg:#0b0d10;--panel:#12151a;--muted:#8892a6;--text:#e6e9ef;--accent:#4cc9f0;--accent-2:#a78bfa;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;padding:2rem;background:var(--bg);color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
+      display:flex;justify-content:center;align-items:flex-start;min-height:100vh;
+    }
+    .wrap{width:min(1100px,100%);display:grid;gap:1rem}
+    h1{margin:0 0 .25rem;font-weight:800;color:var(--accent)}
+    p.muted{margin:.25rem 0 1rem;color:var(--muted)}
+    .card{
+      background:var(--panel);border-radius:1rem;padding:1rem 1rem 1.25rem;
+      box-shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    .row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center}
+    input[type=file]{accent-color:var(--accent)}
+    .btn{
+      background:var(--accent);border:0;color:#041015;font-weight:700;
+      padding:.6rem 1rem;border-radius:.6rem;cursor:pointer;transition:.15s;
+    }
+    .btn.secondary{background:var(--accent-2);color:#0c0a1a}
+    .btn.ghost{background:#1a1d24;color:var(--text);border:1px solid #232734}
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+    label.toggle{display:inline-flex;gap:.5rem;align-items:center;cursor:pointer;color:var(--muted)}
+    textarea{
+      width:100%;min-height:360px;background:#0f1218;color:#d9f7ff;border:1px solid #232734;
+      border-radius:.7rem;padding:1rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+      line-height:1.35;resize:vertical;white-space:pre;
+    }
+    .grid{display:grid;grid-template-columns:1fr;gap:1rem}
+    @media (min-width:1000px){.grid{grid-template-columns:1fr 1fr}}
+    .code-title{font-size:.9rem;color:var(--muted);margin:.5rem 0 .25rem}
+    .meta-inline{color:var(--muted);font-size:.9rem;margin-left:0.5rem}
+    .full-width{grid-column:1/-1}
+    .small-muted{color:var(--muted);font-size:.85rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>PDF → PyPDF Generator (now with ReportLab)</h1>
+    <p class="muted">Upload a PDF and get Python code that recreates it — exact clone, PyPDF rewrite, or ReportLab+PyPDF merge. Includes copy/download and proof tools.</p>
+
+    <div class="card">
+      <div class="row">
+        <input id="file" type="file" accept="application/pdf" />
+        <button class="btn" id="gen">Generate Python</button>
+        <label class="toggle">
+          <input id="chunk" type="checkbox" checked />
+          Chunk base64 (safer for editors)
+        </label>
+
+        <button class="btn secondary" id="dlProof">Download Recreated PDF (Proof)</button>
+        <button class="btn ghost" id="showHash">Show SHA-256</button>
+        <div class="meta-inline" id="meta">No file selected</div>
+      </div>
+      <p class="small-muted">Original file SHA-256: <code id="origHash">—</code></p>
+    </div>
+
+    <div class="grid">
+      <!-- Option A -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div class="code-title">Option A — Exact clone (byte-perfect)</div>
+          <div class="row">
+            <button class="btn ghost" data-copy="#outA">Copy</button>
+            <button class="btn secondary" data-download="#outA" data-name="recreate_exact.py">Download .py</button>
+          </div>
+        </div>
+        <textarea id="outA" spellcheck="false" placeholder="# Python code will appear here…"></textarea>
+      </div>
+
+      <!-- Option B -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div class="code-title">Option B — PyPDF rewrite (rich logging)</div>
+          <div class="row">
+            <button class="btn ghost" data-copy="#outB">Copy</button>
+            <button class="btn secondary" data-download="#outB" data-name="recreate_pypdf_rich.py">Download .py</button>
+          </div>
+        </div>
+        <textarea id="outB" spellcheck="false" placeholder="# Python code will appear here…"></textarea>
+      </div>
+
+      <!-- Option C: ReportLab + PyPDF (full merge) - full width -->
+      <div class="card full-width">
+        <div class="row" style="justify-content:space-between">
+          <div class="code-title">Option C — ReportLab + PyPDF (create cover → merge → checksums)</div>
+          <div class="row">
+            <button class="btn ghost" data-copy="#outC">Copy</button>
+            <button class="btn secondary" data-download="#outC" data-name="recreate_with_cover.py">Download .py</button>
+          </div>
+        </div>
+        <textarea id="outC" spellcheck="false" placeholder="# Python code will appear here…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = sel => document.querySelector(sel);
+    const byId = id => document.getElementById(id);
+
+    // ---- Helpers ----
+    function toBase64(arrayBuffer){
+      // Convert ArrayBuffer → base64 (browser-safe)
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const chunk = 0x8000; // 32KB blocks to avoid stack blowups
+      for(let i=0;i<bytes.length;i+=chunk){
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+      }
+      return btoa(binary);
+    }
+
+    function chunkString(str, size){
+      const res = [];
+      for (let i=0; i<str.length; i+=size) res.push(str.slice(i, i+size));
+      return res;
+    }
+
+    function pyStringLiteralFromBase64(b64, doChunk){
+      // Produce a clean Python triple-quoted string with optional chunking
+      if (!doChunk) {
+        // Escape triple quotes if present (rare in base64 but be safe)
+        const safe = b64.replace(/"""/g, '\\"""');
+        return `DATA_B64 = \"\"\"\n${safe}\n\"\"\"\n`;
+      }
+      const parts = chunkString(b64, 76); // 76-col lines like PEM
+      const body = parts.map(p => `"${p}"`).join(" \\\n    ");
+      return `DATA_B64 = (\n    ${body}\n)\n`;
+    }
+
+    function humanSize(bytes){
+      const units = ["B","KB","MB","GB","TB"];
+      let i=0, n=bytes;
+      while(n >= 1024 && i < units.length-1){ n/=1024; i++; }
+      return `${n.toFixed(n<10&&i>0?2:0)} ${units[i]}`;
+    }
+
+    async function sha256hexFromArrayBuffer(buf){
+      const hash = await crypto.subtle.digest('SHA-256', buf);
+      const hex = Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      return hex;
+    }
+
+    // ---- Builders for Python scripts ----
+    function buildExactClonePy(filename, base64Literal){
+      return `# Generated by PDF → PyPDF Generator (Exact Clone)
+# Recreates the original PDF byte-for-byte (no PyPDF needed).
+# Just run: python recreate_exact.py
+
+import base64, hashlib
+
+${base64Literal}
+data = base64.b64decode(DATA_B64)
+
+# Optional: verify SHA-256 of embedded bytes
+sha = hashlib.sha256(data).hexdigest()
+print("Embedded SHA256:", sha)
+
+with open(${JSON.stringify(filename)}, "wb") as f:
+    f.write(data)
+print("Wrote", ${JSON.stringify(filename)})
+`;
+    }
+
+    function buildPyPDFRewritePy(filename, base64Literal){
+      return `# Generated by PDF → PyPDF Generator (PyPDF rewrite, rich logging)
+# Recreates content using pypdf. Structure may differ from original.
+# pip install pypdf
+
+import base64, io, hashlib
+from pypdf import PdfReader, PdfWriter
+
+${base64Literal}
+pdf_bytes = base64.b64decode(DATA_B64)
+
+# Basic integrity check
+sha_orig = hashlib.sha256(pdf_bytes).hexdigest()
+print("Original embedded SHA256:", sha_orig)
+
+reader = PdfReader(io.BytesIO(pdf_bytes))
+writer = PdfWriter()
+
+for page in reader.pages:
+    writer.add_page(page)
+
+# Preserve metadata when available
+if reader.metadata:
+    md = {k: v for k, v in dict(reader.metadata).items() if v}
+    if md:
+        writer.add_metadata(md)
+
+out_name = ${JSON.stringify("recreated_" + filename)}
+with open(out_name, "wb") as f:
+    writer.write(f)
+
+print("Wrote", out_name)
+print("Pages:", len(reader.pages))
+
+# Print metadata
+if reader.metadata:
+    print("\\nMetadata:")
+    for k, v in reader.metadata.items():
+        print(f"  {k}: {v}")
+
+# Print per-page resource summary
+for i, page in enumerate(reader.pages, 1):
+    try:
+        resources = page.get("/Resources", {}) or {}
+        fonts = (resources.get("/Font") or {})
+        xobjs = (resources.get("/XObject") or {})
+        w = page.mediabox.width if page.mediabox else 'unknown'
+        h = page.mediabox.height if page.mediabox else 'unknown'
+        print(f"Page {i}: size={w}x{h}, fonts={len(fonts)}, images={len(xobjs)}")
+    except Exception as e:
+        print(f"Page {i}: (error inspecting resources) {e}")
+
+# SHA256 of written file
+with open(out_name, "rb") as f:
+    sha_new = hashlib.sha256(f.read()).hexdigest()
+print("SHA256 of written file:", sha_new)
+`;
+    }
+
+    function buildReportLabMergePy(filename, base64Literal){
+      // Use JSON.stringify(filename) to get a properly escaped Python string literal
+      const filename_json = JSON.stringify(filename);
+      return `# Generated by PDF → PyPDF Generator (ReportLab + PyPDF)
+# Creates a ReportLab cover page (in memory) and appends the original PDF.
+# Requires: pip install pypdf reportlab
+
+import base64, io, hashlib
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from pypdf import PdfReader, PdfWriter
+
+${base64Literal}
+orig_bytes = base64.b64decode(DATA_B64)
+
+# filename constant (safe, properly quoted)
+orig_filename = ${filename_json}
+
+# Create a simple cover page in memory with ReportLab
+cover_buf = io.BytesIO()
+c = canvas.Canvas(cover_buf, pagesize=letter)
+c.setFont("Helvetica-Bold", 28)
+c.drawString(72, 720, "Cover Page (ReportLab)")
+c.setFont("Helvetica", 12)
+# use concatenation to avoid embedding quotes incorrectly
+c.drawString(72, 700, "Original filename: " + orig_filename)
+c.drawString(72, 680, "Generated by ReportLab, merged by PyPDF")
+c.showPage()
+c.save()
+cover_buf.seek(0)
+
+# Read cover and original PDF
+cover_reader = PdfReader(cover_buf)
+orig_reader = PdfReader(io.BytesIO(orig_bytes))
+
+writer = PdfWriter()
+# Add cover pages first
+for p in cover_reader.pages:
+    writer.add_page(p)
+# Then add original pages
+for p in orig_reader.pages:
+    writer.add_page(p)
+
+# Add metadata to final PDF
+writer.add_metadata({"/Title": "Merged with Cover", "/Author": "ReportLab+PyPDF"})
+
+out_name = "with_cover_" + orig_filename
+with open(out_name, "wb") as f:
+    writer.write(f)
+
+# Write original bytes as proof_original_<filename>
+proof_orig_name = "proof_original_" + orig_filename
+with open(proof_orig_name, "wb") as f:
+    f.write(orig_bytes)
+
+print("Wrote", out_name)
+print("Final page count:", len(writer.pages))
+print("Original page count:", len(orig_reader.pages))
+
+# Print original metadata if present
+if orig_reader.metadata:
+    print("\\nOriginal metadata:")
+    for k, v in orig_reader.metadata.items():
+        print(f"  {k}: {v}")
+
+# Print per-page resource summary for original
+for i, page in enumerate(orig_reader.pages, 1):
+    try:
+        resources = page.get("/Resources", {}) or {}
+        fonts = (resources.get("/Font") or {})
+        xobjs = (resources.get("/XObject") or {})
+        w = page.mediabox.width if page.mediabox else 'unknown'
+        h = page.mediabox.height if page.mediabox else 'unknown'
+        print(f"Original Page {i}: size={w}x{h}, fonts={len(fonts)}, images={len(xobjs)}")
+    except Exception as e:
+        print(f"Original Page {i}: (error inspecting resources) {e}")
+
+# SHA256 checks
+sha_orig = hashlib.sha256(orig_bytes).hexdigest()
+with open(out_name, "rb") as f:
+    sha_out = hashlib.sha256(f.read()).hexdigest()
+print("\\nSHA256 original (embedded):", sha_orig)
+print("SHA256 final (merged):", sha_out)
+`;
+    }
+
+    // ---- Wire up UI interactions ----
+    byId('file').addEventListener('change', async (ev) => {
+      const file = ev.target.files?.[0];
+      if (!file) {
+        byId('meta').textContent = 'No file selected';
+        byId('origHash').textContent = '—';
+        return;
+      }
+      byId('meta').textContent = `Selected: ${file.name} • ${humanSize(file.size)} • Last modified: ${new Date(file.lastModified).toLocaleString()}`;
+      // compute SHA-256 of original (browser side)
+      const buf = await file.arrayBuffer();
+      const hex = await sha256hexFromArrayBuffer(buf);
+      byId('origHash').textContent = hex;
+    });
+
+    // Generate outputs
+    byId('gen').addEventListener('click', async () => {
+      const file = byId('file').files?.[0];
+      if(!file){
+        alert('Choose a PDF first.');
+        return;
+      }
+      const buf = await file.arrayBuffer();
+      const b64 = toBase64(buf);
+      const lit = pyStringLiteralFromBase64(b64, byId('chunk').checked);
+
+      byId('outA').value = buildExactClonePy(file.name, lit);
+      byId('outB').value = buildPyPDFRewritePy(file.name, lit);
+      byId('outC').value = buildReportLabMergePy(file.name, lit);
+
+      byId('meta').textContent = `Selected: ${file.name} • ${humanSize(file.size)} • Last modified: ${new Date(file.lastModified).toLocaleString()}`;
+    });
+
+    // Copy buttons
+    document.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const ta = $(btn.getAttribute('data-copy'));
+        ta.select();
+        document.execCommand('copy');
+        btn.textContent = 'Copied!';
+        setTimeout(()=>btn.textContent='Copy',900);
+      });
+    });
+
+    // Download .py buttons
+    document.querySelectorAll('[data-download]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const ta = $(btn.getAttribute('data-download'));
+        const name = btn.getAttribute('data-name') || 'script.py';
+        const blob = new Blob([ta.value], {type:'text/x-python'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+    });
+
+    // Proof button: decode base64 back into a real PDF and download (original bytes)
+    byId('dlProof').addEventListener('click', async () => {
+      const file = byId('file').files?.[0];
+      if (!file) {
+        alert("Choose a PDF first.");
+        return;
+      }
+      const buf = await file.arrayBuffer();
+      const b64 = toBase64(buf);
+      const binary = atob(b64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "proof_recreated.pdf";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // Show SHA-256 button (recompute & reveal)
+    byId('showHash').addEventListener('click', async () => {
+      const file = byId('file').files?.[0];
+      if (!file) {
+        alert('Choose a PDF first.');
+        return;
+      }
+      const buf = await file.arrayBuffer();
+      const hex = await sha256hexFromArrayBuffer(buf);
+      alert(`SHA-256 (original file):\n${hex}`);
+    });
+  </script>
+</body>
+</html>

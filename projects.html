@@ -79,6 +79,59 @@
       text-decoration: none;
       color: inherit;
     }
+    
+    /* AI VIP card (same size as .card but fancier) */
+  .ai-card {
+    position: relative;
+    display: block;
+    background: linear-gradient(135deg, rgba(0,209,255,0.15), rgba(123,0,255,0.15));
+    padding: 1rem 1.2rem;
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: 0.25s ease;
+    box-shadow: 0 4px 14px rgba(0, 209, 255, 0.25);
+  }
+
+  /* Hover effect */
+  .ai-card:hover {
+    transform: translateY(-6px) scale(1.02);
+    background: linear-gradient(135deg, rgba(0,209,255,0.25), rgba(123,0,255,0.25));
+    box-shadow: 0 0 25px rgba(0,209,255,0.5), 0 0 45px rgba(123,0,255,0.35);
+  }
+
+/* Title with gradient text */
+  .ai-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #00d1ff, #7b00ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+/* Description */
+  .ai-card p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #ddd;
+  }
+
+/* VIP badge */
+  .ai-card::after {
+    content: "AI";
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #00d1ff, #7b00ff);
+    color: #111;
+    box-shadow: 0 0 10px rgba(0,209,255,0.4);
+  }
+
 
     .back-button {
       margin-top: 3rem;
@@ -103,6 +156,16 @@
 <body>
   <h1>My Mini Projects</h1>
   <p class="note">All projects are open source. Please open GitHub and search the repo for more information.</p>
+
+  <h1>AI Projects</h1>
+  <div class="projects">
+    <a href="wikiai.html" class="ai-card">
+      <h3>WikiAI</h3>
+      <p>WikiAI is a wikipedia-like app but apply AI</p>
+    </a>
+  </div>
+  
+  <h1>Tools</h1>
 
   <div class="projects">
     <a href="python-compiler/index.html" class="card">
